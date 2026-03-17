@@ -1,0 +1,28 @@
+<svg viewBox="0 0 320 200" xmlns="http://www.w3.org/2000/svg">
+  <rect width="320" height="200" fill="#0e0f13"/>
+  <!-- dashboard frame -->
+  <rect x="25" y="25" width="270" height="155" rx="3" fill="none" stroke="#00c8ff" stroke-width="1" opacity="0.35"/>
+  <rect x="25" y="25" width="270" height="18" rx="3" fill="#00c8ff" opacity="0.06"/>
+  <circle cx="38" cy="34" r="3" fill="#ffe600" opacity="0.7"/>
+  <circle cx="50" cy="34" r="3" fill="#00c8ff" opacity="0.5"/>
+  <circle cx="62" cy="34" r="3" fill="#00c8ff" opacity="0.3"/>
+  <!-- metric line -->
+  <polyline
+    points="40,140 65,120 90,130 115,95 140,105 165,75 190,88 215,60 240,72 265,50 290,65"
+    fill="none" stroke="#00c8ff" stroke-width="1.5" opacity="0.8"/>
+  <!-- area fill -->
+  <polygon
+    points="40,140 65,120 90,130 115,95 140,105 165,75 190,88 215,60 240,72 265,50 290,65 290,160 40,160"
+    fill="#00c8ff" opacity="0.05"/>
+  <!-- SLO threshold -->
+  <line x1="40" y1="100" x2="290" y2="100" stroke="#ffe600" stroke-width="0.8" stroke-dasharray="4,4" opacity="0.5"/>
+  <text x="270" y="97" font-family="monospace" font-size="7" fill="#ffe600" opacity="0.7">SLO</text>
+  <!-- alert dot -->
+  <circle cx="165" cy="75" r="4" fill="#ffe600" opacity="0.9"/>
+  <circle cx="165" cy="75" r="8" fill="none" stroke="#ffe600" stroke-width="0.8" opacity="0.4"/>
+  <!-- y-axis ticks -->
+  <line x1="40" y1="55"  x2="46" y2="55"  stroke="#00c8ff" stroke-width="0.8" opacity="0.4"/>
+  <line x1="40" y1="75"  x2="46" y2="75"  stroke="#00c8ff" stroke-width="0.8" opacity="0.4"/>
+  <line x1="40" y1="120" x2="46" y2="120" stroke="#00c8ff" stroke-width="0.8" opacity="0.4"/>
+  <line x1="40" y1="140" x2="46" y2="140" stroke="#00c8ff" stroke-width="0.8" opacity="0.4"/>
+</svg>

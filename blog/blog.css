@@ -1,0 +1,133 @@
+/* ============================================================
+   blog.css — Blog coming-soon page styles
+   ============================================================ */
+
+.blog-coming-soon {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 8rem 2rem 5rem;
+  position: relative;
+  overflow: hidden;
+  text-align: center;
+}
+
+/* grid bg */
+.blog-grid-bg {
+  position: absolute; inset: 0; pointer-events: none;
+  background-image:
+    linear-gradient(rgba(0,200,255,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,200,255,0.04) 1px, transparent 1px);
+  background-size: 55px 55px;
+  mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black 20%, transparent 75%);
+}
+
+.blog-cs-inner {
+  position: relative; z-index: 1;
+  display: flex; flex-direction: column;
+  align-items: center; gap: 2rem;
+  max-width: 680px;
+}
+
+/* status badge */
+.blog-badge {
+  display: inline-flex; align-items: center; gap: 0.6rem;
+  font-size: 0.65rem; letter-spacing: 0.25em; text-transform: uppercase;
+  color: var(--blue); border: 1px solid var(--border-b);
+  padding: 0.4rem 1rem; background: var(--blue-dim);
+}
+.blog-badge-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--yellow);
+  box-shadow: 0 0 8px var(--yellow-glow);
+  animation: pulse 2s ease-in-out infinite;
+}
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+/* headline */
+.blog-cs-headline {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(3.5rem, 8vw, 7rem);
+  line-height: 0.92; letter-spacing: 0.02em;
+  color: var(--fg);
+}
+.blog-cs-headline .hy {
+  color: var(--yellow);
+  text-shadow: 0 0 40px rgba(255,230,0,0.35);
+}
+
+/* sub */
+.blog-cs-sub {
+  font-size: 0.88rem; line-height: 1.9;
+  color: var(--fg-muted); max-width: 50ch;
+}
+
+/* terminal */
+.blog-terminal {
+  width: 100%; max-width: 560px;
+  background: var(--bg3); border: 1px solid var(--border);
+  text-align: left; overflow: hidden;
+}
+.blog-terminal-bar {
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 0.7rem 1rem; background: var(--bg4);
+  border-bottom: 1px solid var(--border);
+}
+.tbar-dot { width: 10px; height: 10px; border-radius: 50%; }
+.tbar-title {
+  font-size: 0.65rem; letter-spacing: 0.1em;
+  color: var(--fg-muted); margin-left: 0.5rem;
+}
+.blog-terminal-body {
+  padding: 1.25rem 1.5rem;
+  font-family: 'DM Mono', monospace; font-size: 0.78rem; line-height: 2;
+}
+.blog-terminal-body p { color: var(--fg); }
+.t-muted { color: var(--fg-muted) !important; }
+.tc { color: var(--blue); margin-right: 0.5rem; }
+.ty { color: var(--yellow); }
+.t-cursor {
+  color: var(--yellow);
+  border-right: 2px solid var(--yellow);
+  padding-right: 2px;
+  animation: blink 1s step-end infinite;
+}
+@keyframes blink { 0%,100%{border-color:var(--yellow)} 50%{border-color:transparent} }
+
+/* floating topic pills */
+.blog-pills {
+  position: absolute;
+  inset: 0; pointer-events: none; overflow: hidden;
+}
+.pill {
+  position: absolute;
+  font-size: 0.6rem; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--blue); border: 1px solid var(--border-b);
+  padding: 0.28rem 0.7rem; background: var(--blue-dim);
+  opacity: 0.35; white-space: nowrap;
+  animation: drift 18s ease-in-out infinite;
+}
+.pill.y { color: var(--yellow); border-color: var(--border-y); background: var(--yellow-dim); }
+
+/* scatter pills around edges */
+.pill:nth-child(1)  { top: 12%; left: 4%;  animation-delay: 0s;    animation-duration: 20s; }
+.pill:nth-child(2)  { top: 22%; right: 5%; animation-delay: -3s;   animation-duration: 17s; }
+.pill:nth-child(3)  { top: 68%; left: 3%;  animation-delay: -6s;   animation-duration: 22s; }
+.pill:nth-child(4)  { top: 78%; right: 4%; animation-delay: -9s;   animation-duration: 19s; }
+.pill:nth-child(5)  { top: 8%;  left: 30%; animation-delay: -2s;   animation-duration: 24s; }
+.pill:nth-child(6)  { top: 88%; left: 25%; animation-delay: -5s;   animation-duration: 21s; }
+.pill:nth-child(7)  { top: 15%; right: 22%;animation-delay: -8s;   animation-duration: 18s; }
+.pill:nth-child(8)  { top: 82%; right: 20%;animation-delay: -11s;  animation-duration: 23s; }
+.pill:nth-child(9)  { top: 40%; left: 2%;  animation-delay: -4s;   animation-duration: 20s; }
+.pill:nth-child(10) { top: 55%; right: 3%; animation-delay: -7s;   animation-duration: 16s; }
+
+@keyframes drift {
+  0%,100% { transform: translateY(0); }
+  50%      { transform: translateY(-12px); }
+}
+
+@media (max-width: 600px) {
+  .blog-pills { display: none; }
+}

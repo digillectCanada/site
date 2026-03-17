@@ -1,0 +1,94 @@
+/* ============================================================
+   hero.css — Hero section + stat cards
+   ============================================================ */
+
+#hero {
+  min-height: 100vh;
+  display: grid; grid-template-columns: 1.15fr 0.85fr;
+  align-items: center; padding: 8rem 3rem 5rem;
+  position: relative; overflow: hidden;
+}
+
+/* Animated dot-grid background */
+.hero-grid {
+  position: absolute; inset: 0; pointer-events: none;
+  background-image:
+    linear-gradient(rgba(0,200,255,0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,200,255,0.045) 1px, transparent 1px);
+  background-size: 55px 55px;
+  mask-image: radial-gradient(ellipse 70% 80% at 65% 45%, black 15%, transparent 70%);
+}
+
+/* Yellow ambient glow */
+#hero::after {
+  content: ''; position: absolute; bottom: -20%; right: -10%;
+  width: 55vw; height: 55vw; border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,230,0,0.05) 0%, transparent 65%);
+  pointer-events: none;
+}
+
+.hero-eyebrow {
+  font-size: 0.68rem; letter-spacing: 0.32em; text-transform: uppercase;
+  color: var(--blue); margin-bottom: 1.6rem;
+  display: flex; align-items: center; gap: 0.8rem;
+}
+.hero-eyebrow::before {
+  content: ''; width: 2rem; height: 1px;
+  background: var(--blue); display: inline-block;
+}
+
+.hero-headline {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(4.8rem, 8.5vw, 9rem);
+  line-height: 0.91; letter-spacing: 0.02em;
+  color: var(--fg); margin-bottom: 2rem;
+}
+.hero-headline .hb { color: var(--blue); text-shadow: 0 0 45px rgba(0,200,255,0.35); }
+.hero-headline .hy { color: var(--yellow); text-shadow: 0 0 45px rgba(255,230,0,0.35); }
+
+.hero-sub {
+  font-size: 0.87rem; line-height: 1.88;
+  color: var(--fg-muted); max-width: 42ch; margin-bottom: 3rem;
+}
+
+.hero-actions { display: flex; gap: 1.25rem; align-items: center; flex-wrap: wrap; }
+
+/* ── Stat cards ── */
+.hero-right {
+  display: flex; flex-direction: column;
+  align-items: flex-end; gap: 1.2rem;
+  position: relative; z-index: 1;
+}
+
+.stat-card {
+  background: var(--bg3); border: 1px solid var(--border);
+  padding: 1.4rem 1.8rem; width: 255px; position: relative;
+  animation: float 6s ease-in-out infinite;
+}
+.stat-card:nth-child(2) { animation-delay: -2s; margin-right: 2.5rem; }
+.stat-card:nth-child(3) { animation-delay: -4s; margin-right: 1rem; }
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-9px); }
+}
+
+.stat-card::before {
+  content: ''; position: absolute; top: 0; left: 0;
+  width: 2px; height: 100%;
+  background: var(--blue); box-shadow: 0 0 10px var(--blue-glow);
+}
+.stat-card.yc::before {
+  background: var(--yellow); box-shadow: 0 0 10px var(--yellow-glow);
+}
+
+.stat-num {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 3rem; line-height: 1; color: var(--blue);
+}
+.stat-card.yc .stat-num { color: var(--yellow); }
+
+.stat-label {
+  font-size: 0.66rem; letter-spacing: 0.13em;
+  text-transform: uppercase; color: var(--fg-muted); margin-top: 0.35rem;
+}
