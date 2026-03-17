@@ -57,18 +57,23 @@
     ],
     "knowsAbout": [
       "Site Reliability Engineering",
+      "SLO", "SLA", "SLI", "Observability",
+      "Monitoring and Alerting", "Incident Response",
+    ],
+    "sameAs": []
+  }
+    <!-- "Site Reliability Engineering",
       "Kubernetes",
+      "Istio",
+      "Envoy Gateway",
       "AWS",
       "Prometheus",
       "Grafana",
       "GitLab CI",
       "Dagger",
-      "Terraform",
+      "Terraform/Terragrunt",
       "Argo CD",
-      "OpenTelemetry"
-    ],
-    "sameAs": []
-  }
+      "OpenTelemetry", -->
   </script>
 
   <!-- Fonts -->
@@ -143,8 +148,8 @@
 ══════════════════════════════════════════ -->
 <div class="marquee-wrapper" aria-hidden="true">
   <div class="marquee-track">
-    <div class="marquee-item">Kubernetes<span class="mdot">●</span>AWS<span class="mdot">●</span>Prometheus<span class="mdot">●</span>Grafana<span class="mdot">●</span>GitLab CI<span class="mdot">●</span>Dagger<span class="mdot">●</span>Terraform<span class="mdot">●</span>Argo CD<span class="mdot">●</span>Datadog<span class="mdot">●</span>Helm<span class="mdot">●</span>Istio<span class="mdot">●</span>Cilium<span class="mdot">●</span>OpenTelemetry<span class="mdot">●</span>EKS<span class="mdot">●</span>GKE<span class="mdot">●</span>Velero<span class="mdot">●</span>Crossplane<span class="mdot">●</span>PagerDuty<span class="mdot">●</span></div>
-    <div class="marquee-item">Kubernetes<span class="mdot">●</span>AWS<span class="mdot">●</span>Prometheus<span class="mdot">●</span>Grafana<span class="mdot">●</span>GitLab CI<span class="mdot">●</span>Dagger<span class="mdot">●</span>Terraform<span class="mdot">●</span>Argo CD<span class="mdot">●</span>Datadog<span class="mdot">●</span>Helm<span class="mdot">●</span>Istio<span class="mdot">●</span>Cilium<span class="mdot">●</span>OpenTelemetry<span class="mdot">●</span>EKS<span class="mdot">●</span>GKE<span class="mdot">●</span>Velero<span class="mdot">●</span>Crossplane<span class="mdot">●</span>PagerDuty<span class="mdot">●</span></div>
+    <div class="marquee-item">Kubernetes<span class="mdot">●</span>AWS<span class="mdot">●</span>Prometheus<span class="mdot">●</span>CloudFlare<span class="mdot">●</span>Grafana<span class="mdot">●</span>Loki<span class="mdot">●</span>VictoriaMetrics<span class="mdot">●</span>GitLab CI<span class="mdot">●</span>Dagger<span class="mdot">●</span>Terraform<span class="mdot">●</span>Terragrunt<span class="mdot">●</span>Argo CD<span class="mdot">●</span>Datadog<span class="mdot">●</span>Helm<span class="mdot">●</span>Istio<span class="mdot">●</span>Cilium<span class="mdot">●</span>Envoy Gateway<span class="mdot">●</span>OpenTelemetry<span class="mdot">●</span>EKS<span class="mdot">●</span>Velero<span class="mdot">●</span>PagerDuty<span class="mdot">●</span></div>
+    <div class="marquee-item">Kubernetes<span class="mdot">●</span>AWS<span class="mdot">●</span>Prometheus<span class="mdot">●</span>CloudFlare<span class="mdot">●</span>Grafana<span class="mdot">●</span>Loki<span class="mdot">●</span>VictoriaMetrics<span class="mdot">●</span>GitLab CI<span class="mdot">●</span>Dagger<span class="mdot">●</span>Terraform<span class="mdot">●</span>Terragrunt<span class="mdot">●</span>Argo CD<span class="mdot">●</span>Datadog<span class="mdot">●</span>Helm<span class="mdot">●</span>Istio<span class="mdot">●</span>Cilium<span class="mdot">●</span>Envoy Gateway<span class="mdot">●</span>OpenTelemetry<span class="mdot">●</span>EKS<span class="mdot">●</span>Velero<span class="mdot">●</span>PagerDuty<span class="mdot">●</span></div>
   </div>
 </div>
 
@@ -276,8 +281,8 @@
         <span class="tag y">Disaster Recovery</span>
         <span class="tag">AWS</span>
         <span class="tag">GitOps</span>
-        <span class="tag y">GitLab CI</span>
-        <span class="tag">Dagger</span>
+        <span class="tag y">CI/CD</span>
+        <span class="tag">Monitoring and Alerting</span>
       </div>
     </div>
     <div>
@@ -336,8 +341,12 @@
         <div class="svc-tags">
           <span class="svc-tag">Prometheus</span>
           <span class="svc-tag">Grafana</span>
+          <span class="svc-tag">Loki</span>
+          <span class="svc-tag">ElasticSearch</span>
           <span class="svc-tag">OpenTelemetry</span>
           <span class="svc-tag">Datadog</span>
+          <span class="svc-tag">VictoriaMetrics</span>
+          <span class="svc-tag">Vector</span>
           <span class="svc-tag">Alerting Design</span>
           <span class="svc-tag">Tracing</span>
         </div>
@@ -354,12 +363,14 @@
         <div class="svc-tags">
           <span class="svc-tag">EKS / GKE / AKS</span>
           <span class="svc-tag">Istio</span>
+          <span class="svc-tag">Gateway API</span>
+          <span class="svc-tag">Envoy Gateway</span>
           <span class="svc-tag">Cilium</span>
           <span class="svc-tag">Argo CD</span>
           <span class="svc-tag">Helm</span>
-          <span class="svc-tag">Crossplane</span>
           <span class="svc-tag">Velero</span>
-          <span class="svc-tag">HPA / KEDA</span>
+          <span class="svc-tag">HPA / VPA</span>
+          <span class="svc-tag">Thoras</span>
         </div>
       </div>
 
