@@ -4,21 +4,19 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Blog — Digillect SRE &amp; Cloud Consultancy</title>
-  <meta name="description" content="SRE deep-dives, Kubernetes war stories, cloud migration field notes, and platform reliability insights from Digillect — coming soon." />
+  <meta name="description" content="SRE deep-dives, Kubernetes war stories, cloud migration field notes, and platform reliability insights from Digillect." />
   <meta name="robots" content="index, follow" />
   <link rel="canonical" href="https://digillect.ca/blog/" />
   <meta property="og:type"        content="website" />
   <meta property="og:url"         content="https://digillect.ca/blog/" />
   <meta property="og:title"       content="Blog — Digillect SRE &amp; Cloud Consultancy" />
-  <meta property="og:description" content="SRE deep-dives, Kubernetes war stories, cloud migration field notes, and platform reliability insights. Coming soon." />
+  <meta property="og:description" content="SRE deep-dives, Kubernetes war stories, cloud migration field notes, and platform reliability insights." />
   <meta property="og:site_name"   content="Digillect" />
 
-  <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
 
-  <!-- Styles -->
   <link rel="stylesheet" href="../css/tokens.css" />
   <link rel="stylesheet" href="../css/nav.css" />
   <link rel="stylesheet" href="blog.css" />
@@ -31,78 +29,59 @@
     <li><a href="../index.html#about">About</a></li>
     <li><a href="../index.html#services">Services</a></li>
     <li><a href="../index.html#engage">How We Work</a></li>
-    <li><a href="index.html" style="color:var(--yellow)">Blog</a></li>
     <li><a href="../index.html#contact">Contact</a></li>
+    <li><a href="index.html" class="nav-active">Blog</a></li>
   </ul>
   <a class="nav-cta" href="../index.html#contact">Get in Touch</a>
 </nav>
 
-<main class="blog-coming-soon">
-
-  <!-- animated grid bg -->
-  <div class="blog-grid-bg" aria-hidden="true"></div>
-
-  <div class="blog-cs-inner">
-
-    <!-- terminal-style badge -->
-    <div class="blog-badge">
-      <span class="blog-badge-dot"></span>
-      <span>status: compiling thoughts</span>
+<!-- ── HERO TICKER ── -->
+<div class="blog-ticker-wrap">
+  <div class="blog-ticker-inner">
+    <div class="blog-ticker-badge">
+      <span class="ticker-dot"></span>
+      <span class="ticker-label">TRANSMISSION INCOMING</span>
     </div>
-
-    <h1 class="blog-cs-headline">
-      The Blog Is<br><span class="hy">Deploying.</span>
-    </h1>
-
-    <p class="blog-cs-sub">
-      Turns out writing about reliability takes a little longer than a canary deploy.<br>
-      SRE deep-dives, Kubernetes war stories, and cloud migration field notes — coming soon.
+    <p class="blog-ticker-text">
+      More posts deploying soon — <span class="ty">subscribe to the signal.</span>
     </p>
-
-    <!-- fake terminal -->
-    <div class="blog-terminal">
-      <div class="blog-terminal-bar">
-        <span class="tbar-dot" style="background:#ff5f57"></span>
-        <span class="tbar-dot" style="background:#febc2e"></span>
-        <span class="tbar-dot" style="background:#28c840"></span>
-        <span class="tbar-title">digillect-blog ~ deploy</span>
-      </div>
-      <div class="blog-terminal-body">
-        <p><span class="tc">$</span> git clone blog-content.git</p>
-        <p class="t-muted">Cloning into 'blog-content'...</p>
-        <p><span class="tc">$</span> npm run build</p>
-        <p class="t-muted">⠸ Brewing takes on SRE culture...</p>
-        <p class="t-muted">⠸ Distilling 10 years of on-call trauma into helpful prose...</p>
-        <p class="t-muted">⠸ Removing opinions deemed "too spicy"...</p>
-        <p><span class="ty">▌</span> <span class="t-cursor">ETA: soon™</span></p>
-      </div>
-    </div>
-
-    <a class="btn-primary" href="../index.html">← Back to Home</a>
-
   </div>
-
-  <!-- floating topic pills -->
-  <div class="blog-pills" aria-hidden="true">
-    <span class="pill">Kubernetes</span>
-    <span class="pill y">SRE Culture</span>
-    <span class="pill">Observability</span>
-    <span class="pill y">GitLab CI</span>
-    <span class="pill">Cloud Migration</span>
-    <span class="pill y">Dagger</span>
-    <span class="pill">Incident Response</span>
-    <span class="pill y">DR Runbooks</span>
-    <span class="pill">Terraform</span>
-    <span class="pill y">On-Call Design</span>
+  <!-- animated signal bars -->
+  <div class="signal-bars" aria-hidden="true">
+    <span class="bar"></span>
+    <span class="bar"></span>
+    <span class="bar"></span>
+    <span class="bar"></span>
+    <span class="bar"></span>
   </div>
+</div>
 
+<!-- ── PAGE HEADER ── -->
+<header class="blog-header">
+  <div class="blog-header-inner">
+    <p class="blog-eyebrow">Field Notes from the Stack</p>
+    <h1 class="blog-headline">The <span class="hb">Signal</span></h1>
+    <p class="blog-header-sub">SRE deep-dives, Kubernetes war stories, and cloud migration field notes — written from the trenches, not the slides.</p>
+  </div>
+</header>
+
+<!-- ── BLOG GRID ── -->
+<main class="blog-main">
+  <div class="blog-grid" id="blog-grid">
+    <!-- Cards injected by JS from POSTS array -->
+  </div>
 </main>
 
-<footer style="border-top:1px solid var(--border);padding:2rem 3rem;display:flex;align-items:center;justify-content:space-between;">
-  <div style="font-family:'Bebas Neue',sans-serif;font-size:1.25rem;letter-spacing:0.1em;color:var(--blue);text-shadow:0 0 16px var(--blue-glow);">Digillect</div>
-  <div style="font-size:0.65rem;letter-spacing:0.1em;color:var(--fg-muted);">© 2025 Digillect. All rights reserved.</div>
-  <div style="font-size:0.65rem;letter-spacing:0.1em;color:var(--fg-muted);">Downtown Toronto, ON</div>
+<!-- ── FOOTER ── -->
+<footer class="blog-footer">
+  <div class="footer-logo">Digillect</div>
+  <div class="footer-copy">© 2025 Digillect. All rights reserved.</div>
+  <div class="footer-loc">
+    <svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+    Downtown Toronto, ON
+  </div>
 </footer>
 
+<script src="blog.js"></script>
 </body>
 </html>
