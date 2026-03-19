@@ -119,6 +119,32 @@ function buildCard(post, index, layoutClass) {
 
 /* ── Init ── */
 document.addEventListener('DOMContentLoaded', () => {
+
+  /* hamburger for blog page */
+  const btn    = document.getElementById('nav-hamburger');
+  const drawer = document.getElementById('nav-mobile-drawer');
+  if (btn && drawer) {
+    btn.addEventListener('click', () => {
+      const isOpen = drawer.classList.toggle('open');
+      btn.classList.toggle('open', isOpen);
+      document.body.style.overflow = isOpen ? 'hidden' : '';
+    });
+    drawer.addEventListener('click', (e) => {
+      if (e.target === drawer) {
+        drawer.classList.remove('open');
+        btn.classList.remove('open');
+        document.body.style.overflow = '';
+      }
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        drawer.classList.remove('open');
+        btn.classList.remove('open');
+        document.body.style.overflow = '';
+      }
+    });
+  }
+
   const grid = document.getElementById('blog-grid');
   if (!grid) return;
 

@@ -3,9 +3,8 @@
    ============================================================ */
 
 @media (max-width: 960px) {
-  /* Nav */
+  /* Nav — hamburger handled in nav.css */
   nav { padding: 1rem 1.5rem; }
-  .nav-links { display: none; }
 
   /* Hero */
   #hero { grid-template-columns: 1fr; padding: 7rem 1.5rem 4rem; }

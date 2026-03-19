@@ -21,8 +21,18 @@
    ✅ Rate limiting handled below (1 submit / 60s per form)
    ============================================================ */
 
+/* global helper called from inline onclick in mobile drawer */
+function closeDrawer() {
+  const btn    = document.getElementById('nav-hamburger');
+  const drawer = document.getElementById('nav-mobile-drawer');
+  if (drawer) drawer.classList.remove('open');
+  if (btn)    btn.classList.remove('open');
+  document.body.style.overflow = '';
+}
+
 const FORMSPREE_CONTACT = 'https://formspree.io/f/mzdjkkgq';
 const FORMSPREE_TESTI   = 'https://formspree.io/f/mqeyggdy';
+
 
 /* ── Testimonials data ───────────────────────────────────────
    To add approved testimonials: push objects into this array.
@@ -100,6 +110,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }, { threshold: 0.05 }).observe(grid);
   }
 
+  /* ── Hamburger menu ── */
+  initHamburger();
+
   /* ── Init sections ── */
   initTestimonials();
   initContactForm();
@@ -173,6 +186,31 @@ function initTestimonials() {
   function startAuto() { autoTimer = setInterval(() => goTo(current + 1), 6000); }
   function resetAuto()  { clearInterval(autoTimer); startAuto(); }
   if (TESTIMONIALS.length > 1) startAuto();
+}
+
+/* ============================================================
+   HAMBURGER MENU
+   ============================================================ */
+function initHamburger() {
+  const btn    = document.getElementById('nav-hamburger');
+  const drawer = document.getElementById('nav-mobile-drawer');
+  if (!btn || !drawer) return;
+
+  btn.addEventListener('click', () => {
+    const isOpen = drawer.classList.toggle('open');
+    btn.classList.toggle('open', isOpen);
+    document.body.style.overflow = isOpen ? 'hidden' : '';
+  });
+
+  // Close on backdrop click
+  drawer.addEventListener('click', (e) => {
+    if (e.target === drawer) closeDrawer();
+  });
+
+  // Close on ESC
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeDrawer();
+  });
 }
 
 /* ============================================================
