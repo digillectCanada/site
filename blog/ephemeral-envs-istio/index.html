@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cost-Efficient Ephemeral Environments with Istio — Digillect</title>
+  <meta name="description" content="Deploy only the services that changed. Route feature traffic via header or cookie. Reuse the rest from your stable non-prod cluster — no duplicate stacks, no wasted compute." />
+  <meta name="keywords" content="Istio ephemeral environments, Kubernetes feature environments, VirtualService routing, EnvoyFilter Lua, ephemeral env Istio, Kubernetes cost optimisation, platform engineering Toronto" />
+  <meta name="author" content="Digillect" />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="https://digillect.ca/blog/ephemeral-envs-istio/" />
+
+  <meta property="og:type"        content="article" />
+  <meta property="og:url"         content="https://digillect.ca/blog/ephemeral-envs-istio/" />
+  <meta property="og:title"       content="Cost-Efficient Ephemeral Environments with Istio" />
+  <meta property="og:description" content="Deploy only what changed. Route feature traffic via header or cookie. Reuse stable non-prod for the rest — no duplicate stacks, no wasted compute." />
+  <meta property="og:site_name"   content="Digillect" />
+  <meta property="article:published_time" content="2026-03-01" />
+  <meta property="article:tag"    content="Istio" />
+  <meta property="article:tag"    content="Kubernetes" />
+  <meta property="article:tag"    content="Platform Engineering" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="../../css/tokens.css" />
+  <link rel="stylesheet" href="../../css/nav.css" />
+  <link rel="stylesheet" href="post.css" />
+</head>
+<body>
+
+<!-- ══ NAV ══ -->
+<nav>
+  <a class="nav-logo" href="../../index.html">Digi<span>llect</span></a>
+  <ul class="nav-links">
+    <li><a href="../../index.html#about">About</a></li>
+    <li><a href="../../index.html#services">Services</a></li>
+    <li><a href="../../index.html#engage">How We Work</a></li>
+    <li><a href="../index.html" class="nav-active">Blog</a></li>
+    <li><a href="../../index.html#contact">Contact</a></li>
+  </ul>
+  <a class="nav-cta" href="../../index.html#contact">Get in Touch</a>
+  <button class="nav-hamburger" id="nav-hamburger" aria-label="Toggle menu">
+    <span></span><span></span><span></span>
+  </button>
+</nav>
+
+<div class="nav-mobile-drawer" id="nav-mobile-drawer">
+  <a href="../../index.html#about">About</a>
+  <a href="../../index.html#services">Services</a>
+  <a href="../../index.html#engage">How We Work</a>
+  <a href="../index.html" class="nav-active">Blog</a>
+  <a href="../../index.html#contact">Contact</a>
+  <a href="../../index.html#contact" class="drawer-cta">Get in Touch</a>
+</div>
+
+<!-- ══ HERO ══ -->
+<header class="post-hero">
+  <div class="post-hero-inner">
+    <div class="post-tags">
+      <span class="post-tag blue">Istio</span>
+      <span class="post-tag yellow">Kubernetes</span>
+      <span class="post-tag blue">Platform Eng</span>
+      <span class="post-tag muted">March 2026</span>
+    </div>
+    <h1 class="post-headline">
+      Cost-efficient <span class="hb">ephemeral envs</span><br>
+      across <span class="hy">clusters</span> with Istio
+    </h1>
+    <p class="post-lead">
+      Deploy only the services that changed. Route feature traffic via header or cookie.
+      Reuse the rest from your stable non-prod cluster — no duplicate stacks, no wasted compute.
+      Your cloud bill will send a thank-you note. Your on-call rotation won't need to.
+    </p>
+    <div class="post-meta">
+      <span>Digillect Engineering — Platform &amp; Infrastructure</span>
+      <span class="post-meta-sep">●</span>
+      <span>~14 min read</span>
+      <a href="../index.html" class="post-back">← Back to Blog</a>
+    </div>
+  </div>
+</header>
+
+<!-- ══ ARTICLE ══ -->
+<article class="post-body">
+
+<div class="callout ok">
+  <div class="callout-label">TL;DR — for the impatient engineer</div>
+  <p>For each app that changed in a feature, deploy one new pod and three Istio objects — a <strong>VirtualService</strong> (traffic gate + cookie setter), a <strong>DestinationRule</strong> (pod selector), and optionally an <strong>EnvoyFilter</strong> (outbound header propagation for apps that don't propagate it themselves). A shared EnvoyFilter on the ingress gateway converts <code>?x-feat-name</code> to a request header at the edge — request phase only, no response manipulation. The VirtualService owns <code>Set-Cookie</code>. Any request carrying <code>x-feat-name: auth-refactor</code> routes to the feature pods. Everything else falls through to stable non-prod. Go touch grass.</p>
+</div>
+
+<h2>The problem with <span class="hb">full-clone</span> envs</h2>
+
+<p>You're running 12 microservices in non-prod. A developer needs to test a new auth flow against the real frontend and backend. The standard move: clone the whole environment, spin up all 12 services again, wire them, and tear them down when the PR merges. The cost compounds fast the moment more than one feature branch is active.</p>
+
+<p>The selective deploy pattern flips this: you only run what changed. Everything else comes from the stable non-prod cluster, routed correctly via Istio's L7 traffic shaping layer. The only hard requirement is that services in the mesh run an Istio sidecar — and notably, each cluster can belong to its own mesh entirely. No shared control plane required. Your platform team will sleep better. Probably.</p>
+
+<table class="compare-table">
+  <thead>
+    <tr><th>Concern</th><th>Full-clone</th><th>Selective deploy (this pattern)</th></tr>
+  </thead>
+  <tbody>
+    <tr><td class="lc">Cloud cost</td><td class="bad">Runs N services even if 2 changed</td><td class="good">Runs only delta; routes to shared stable</td></tr>
+    <tr><td class="lc">Spin-up time</td><td class="bad">Minutes to hours per feature</td><td class="good">Seconds — just the changed deployments</td></tr>
+    <tr><td class="lc">Config parity</td><td class="bad">Cloned envs drift quickly</td><td class="good">Shared pods are the same nonprod pods</td></tr>
+    <tr><td class="lc">Teardown</td><td class="bad">Cleanup often delayed; costs accumulate</td><td class="good">kubectl delete removes all Istio objects</td></tr>
+    <tr><td class="lc">Multi-mesh support</td><td>N/A</td><td class="good">Each cluster uses its own mesh independently</td></tr>
+  </tbody>
+</table>
+
+<h2>Architecture <span class="hb">overview</span></h2>
+
+<p>The routing split happens at three layers. 
+  <div class="callout ok">
+    <ul>
+      <li>First, a dedicated EnvoyFilter on the ingress gateway operates on the <strong>request phase only</strong> — it reads <code>?x-feat-name</code> from the URL and promotes it to a request header so downstream VirtualServices can match it. The cookie is written on the response by the VirtualService's <code>headers.response.add</code> block.</li>
+      <li>Second, VirtualServices on each changed application match the header or cookie and route to the appropriate pod subset. </li>
+      <li>Third, EnvoyFilters on each feature pod's sidecar propagate the header on every outbound call via a Lua script in the sidecar's outbound HTTP filter chain, keeping downstream services in the same feature lane automatically</li>
+    </ul> 
+  </div>
+</p>
+
+<div class="diagram-wrap">
+<svg class="arch-svg" viewBox="0 0 700 620" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+<rect x="252" y="12" width="196" height="36" rx="3" fill="#13151c" stroke="rgba(255,255,255,0.07)" stroke-width="1"/>
+<text x="350" y="30" text-anchor="middle" dominant-baseline="central" fill="#eaeef3" font-size="12" font-weight="500">browser / api client</text>
+<line x1="350" y1="48" x2="350" y2="70" stroke="rgba(255,255,255,0.07)" stroke-width="1.5" marker-end="url(#arr)"/>
+<rect x="140" y="72" width="420" height="44" rx="3" fill="#1a1400" stroke="#ffe600" stroke-width="1"/>
+<text x="350" y="88" text-anchor="middle" dominant-baseline="central" fill="#ffe600" font-size="12" font-weight="500">ingress gateway EnvoyFilter</text>
+<text x="350" y="106" text-anchor="middle" dominant-baseline="central" fill="#6a5a20" font-size="10">reads ?x-feat-name → sets header on request; VS sets cookie on response</text>
+<line x1="350" y1="116" x2="350" y2="138" stroke="rgba(255,255,255,0.07)" stroke-width="1.5" marker-end="url(#arr)"/>
+<rect x="175" y="140" width="350" height="44" rx="3" fill="#0d1a2a" stroke="#00c8ff" stroke-width="1"/>
+<text x="350" y="156" text-anchor="middle" dominant-baseline="central" fill="#00c8ff" font-size="12" font-weight="500">istio ingress gateway</text>
+<text x="350" y="172" text-anchor="middle" dominant-baseline="central" fill="#3a6a80" font-size="10">digillect-gateway · myapp.digillect.ca</text>
+<line x1="350" y1="184" x2="350" y2="206" stroke="rgba(255,255,255,0.07)" stroke-width="1.5" marker-end="url(#arr)"/>
+<rect x="145" y="208" width="410" height="44" rx="3" fill="#0d1a2a" stroke="#00c8ff" stroke-width="1"/>
+<text x="350" y="224" text-anchor="middle" dominant-baseline="central" fill="#00c8ff" font-size="12" font-weight="500">virtualservice — route decision</text>
+<text x="350" y="240" text-anchor="middle" dominant-baseline="central" fill="#3a6a80" font-size="10">match: x-feat-name header or cookie only</text>
+<path d="M252 252 L140 296" stroke="rgba(255,255,255,0.07)" stroke-width="1.5" fill="none" marker-end="url(#arr)"/>
+<text x="162" y="283" text-anchor="middle" fill="#3d4a56" font-size="10">no match</text>
+<path d="M448 252 L560 296" stroke="#00e5a0" stroke-width="1.5" fill="none" marker-end="url(#arr)"/>
+<text x="538" y="283" text-anchor="middle" fill="#00e5a0" font-size="10">header/cookie hit</text>
+<rect x="14" y="304" width="300" height="288" rx="3" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="1" stroke-dasharray="5 4"/>
+<text x="164" y="322" text-anchor="middle" fill="#5f6e7e" font-size="11">nonprod — stable</text>
+<rect x="24" y="336" width="130" height="34" rx="3" fill="#13151c" stroke="rgba(255,255,255,0.07)" stroke-width="0.8"/>
+<text x="89" y="350" text-anchor="middle" dominant-baseline="central" fill="#eaeef3" font-size="11">frontend</text>
+<text x="89" y="363" text-anchor="middle" dominant-baseline="central" fill="#5f6e7e" font-size="10">stable</text>
+<rect x="24" y="384" width="130" height="34" rx="3" fill="#13151c" stroke="rgba(255,255,255,0.07)" stroke-width="0.8"/>
+<text x="89" y="398" text-anchor="middle" dominant-baseline="central" fill="#eaeef3" font-size="11">auth service</text>
+<text x="89" y="411" text-anchor="middle" dominant-baseline="central" fill="#5f6e7e" font-size="10">shared</text>
+<rect x="24" y="432" width="130" height="34" rx="3" fill="#13151c" stroke="rgba(255,255,255,0.07)" stroke-width="0.8"/>
+<text x="89" y="446" text-anchor="middle" dominant-baseline="central" fill="#eaeef3" font-size="11">session-restapi</text>
+<text x="89" y="459" text-anchor="middle" dominant-baseline="central" fill="#5f6e7e" font-size="10">shared</text>
+<rect x="24" y="480" width="130" height="34" rx="3" fill="#13151c" stroke="rgba(255,255,255,0.07)" stroke-width="0.8"/>
+<text x="89" y="494" text-anchor="middle" dominant-baseline="central" fill="#eaeef3" font-size="11">info-restapi</text>
+<text x="89" y="507" text-anchor="middle" dominant-baseline="central" fill="#5f6e7e" font-size="10">shared</text>
+<text x="162" y="348" text-anchor="start" fill="#00c8ff" font-size="10">DestinationRule</text>
+<text x="162" y="360" text-anchor="start" fill="#3a6a80" font-size="10">subset: stable</text>
+<text x="162" y="396" text-anchor="start" fill="#00c8ff" font-size="10">VirtualService</text>
+<text x="162" y="408" text-anchor="start" fill="#3a6a80" font-size="10">default fallthrough</text>
+<rect x="386" y="304" width="300" height="288" rx="3" fill="none" stroke="#00c8ff" stroke-width="1" stroke-dasharray="5 4"/>
+<text x="536" y="322" text-anchor="middle" fill="#00c8ff" font-size="11">ephemeral — feat: auth-refactor</text>
+<rect x="396" y="336" width="130" height="34" rx="3" fill="#13151c" stroke="rgba(255,255,255,0.07)" stroke-width="0.8"/>
+<text x="461" y="350" text-anchor="middle" dominant-baseline="central" fill="#eaeef3" font-size="11">frontend</text>
+<text x="461" y="363" text-anchor="middle" dominant-baseline="central" fill="#5f6e7e" font-size="10">reused — nonprod</text>
+<rect x="396" y="384" width="130" height="34" rx="3" fill="#0d1a2a" stroke="#00c8ff" stroke-width="0.8"/>
+<text x="461" y="398" text-anchor="middle" dominant-baseline="central" fill="#00c8ff" font-size="11">auth service v2</text>
+<text x="461" y="411" text-anchor="middle" dominant-baseline="central" fill="#3a6a80" font-size="10">new — deployed</text>
+<rect x="396" y="432" width="130" height="34" rx="3" fill="#0d1a2a" stroke="#00c8ff" stroke-width="0.8"/>
+<text x="461" y="446" text-anchor="middle" dominant-baseline="central" fill="#00c8ff" font-size="11">session-restapi v2</text>
+<text x="461" y="459" text-anchor="middle" dominant-baseline="central" fill="#3a6a80" font-size="10">new — deployed</text>
+<rect x="396" y="480" width="130" height="34" rx="3" fill="#13151c" stroke="rgba(255,255,255,0.07)" stroke-width="0.8"/>
+<text x="461" y="494" text-anchor="middle" dominant-baseline="central" fill="#eaeef3" font-size="11">info-restapi</text>
+<text x="461" y="507" text-anchor="middle" dominant-baseline="central" fill="#5f6e7e" font-size="10">reused — nonprod</text>
+<text x="534" y="348" text-anchor="start" fill="#5f6e7e" font-size="10">no Istio objects</text>
+<text x="534" y="360" text-anchor="start" fill="#5f6e7e" font-size="10">(propagates header)</text>
+<text x="534" y="396" text-anchor="start" fill="#00c8ff" font-size="10">VirtualService</text>
+<text x="534" y="408" text-anchor="start" fill="#00c8ff" font-size="10">DestinationRule</text>
+<text x="534" y="420" text-anchor="start" fill="#00c8ff" font-size="10">EnvoyFilter</text>
+<text x="534" y="444" text-anchor="start" fill="#00c8ff" font-size="10">VirtualService</text>
+<text x="534" y="456" text-anchor="start" fill="#00c8ff" font-size="10">DestinationRule</text>
+<text x="534" y="468" text-anchor="start" fill="#00c8ff" font-size="10">EnvoyFilter</text>
+<text x="534" y="492" text-anchor="start" fill="#5f6e7e" font-size="10">no Istio objects</text>
+<text x="534" y="504" text-anchor="start" fill="#5f6e7e" font-size="10">(reused stable)</text>
+<path d="M240 252 L164 304" stroke="rgba(255,255,255,0.07)" stroke-width="1.5" fill="none" marker-end="url(#arr)"/>
+<path d="M460 252 L536 304" stroke="#00e5a0" stroke-width="1.5" fill="none" marker-end="url(#arr)"/>
+<rect x="14" y="604" width="12" height="6" fill="#00e5a0"/>
+<text x="32" y="610" fill="#5f6e7e" font-size="10">feature traffic (x-feat-name matched)</text>
+<rect x="230" y="604" width="12" height="6" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="0.8"/>
+<text x="248" y="610" fill="#5f6e7e" font-size="10">stable nonprod</text>
+<rect x="380" y="604" width="12" height="6" fill="none" stroke="rgba(255,255,255,0.07)" stroke-dasharray="3 2" stroke-width="0.8"/>
+<text x="398" y="610" fill="#5f6e7e" font-size="10">reused — no new pod deployed</text>
+</svg>
+<p class="diagram-caption">Fig 1 — Gateway EnvoyFilter normalises the query param at the edge. Only auth service v2 and session-restapi v2 are deployed new; frontend and info-restapi are shared from stable non-prod. Each changed service gets its own VirtualService, DestinationRule, and EnvoyFilter.</p>
+</div>
+
+<h2>How it <span class="hb">works</span></h2>
+
+<p>The mechanism hinges on three layers working together. At the edge, a dedicated EnvoyFilter on the ingress gateway intercepts any request carrying <code>?x-feat-name=auth-refactor</code> and promotes it to a request header — request phase only. The <code>Set-Cookie</code> on the response is written by the VirtualService's <code>headers.response.add</code> block, so the browser pins to the feature env after the first hit.</p>
+
+<p>Inside the mesh, each participating service has a VirtualService that matches on the header or cookie and routes to the feature pod subset. On those feature pods, a per-workload EnvoyFilter injects <code>x-feat-name</code> onto every outbound call via a Lua script in the sidecar's outbound HTTP filter chain, keeping downstream services in the same feature lane automatically.</p>
+
+<p>One important constraint runs throughout the pattern: <strong>the application itself must forward the <code>x-feat-name</code> header on any outbound calls it makes</strong>. The Lua EnvoyFilter handles this transparently for services in the ephemeral env, but for services that are <em>shared from stable non-prod</em> — like the frontend in an auth-only feature — the app code needs to propagate the header explicitly. This is covered in the gotchas section below. You've been warned. We warned you.</p>
+
+<div class="diagram-wrap">
+<svg class="arch-svg" viewBox="0 0 700 600" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="ar2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+<text x="350" y="14" text-anchor="middle" fill="#5f6e7e" font-size="10">request path — first visit via query param</text>
+<rect x="220" y="22" width="260" height="44" rx="3" fill="#13151c" stroke="rgba(255,255,255,0.07)" stroke-width="0.8"/>
+<text x="350" y="39" text-anchor="middle" dominant-baseline="central" fill="#eaeef3" font-size="11" font-weight="500">1 — browser</text>
+<text x="350" y="55" text-anchor="middle" dominant-baseline="central" fill="#5f6e7e" font-size="10">GET ?x-feat-name=auth-refactor</text>
+<line x1="350" y1="66" x2="350" y2="88" stroke="#ffe600" stroke-width="1.5" marker-end="url(#ar2)"/>
+<rect x="160" y="90" width="380" height="44" rx="3" fill="#1a1400" stroke="#ffe600" stroke-width="0.8"/>
+<text x="350" y="107" text-anchor="middle" dominant-baseline="central" fill="#ffe600" font-size="11" font-weight="500">2 — gateway EnvoyFilter (request phase)</text>
+<text x="350" y="123" text-anchor="middle" dominant-baseline="central" fill="#6a5a20" font-size="10">reads ?x-feat-name → sets x-feat-name header on request</text>
+<line x1="350" y1="134" x2="350" y2="156" stroke="#00c8ff" stroke-width="1.5" marker-end="url(#ar2)"/>
+<rect x="160" y="158" width="380" height="44" rx="3" fill="#13151c" stroke="rgba(255,255,255,0.07)" stroke-width="0.8"/>
+<text x="350" y="175" text-anchor="middle" dominant-baseline="central" fill="#eaeef3" font-size="11" font-weight="500">3 — frontend (stable — shared from nonprod)</text>
+<text x="350" y="191" text-anchor="middle" dominant-baseline="central" fill="#5f6e7e" font-size="10">no Istio objects; app propagates x-feat-name on outbound call to auth</text>
+<line x1="350" y1="202" x2="350" y2="224" stroke="#00c8ff" stroke-width="1.5" marker-end="url(#ar2)"/>
+<rect x="160" y="226" width="380" height="44" rx="3" fill="#0d1a2a" stroke="#00c8ff" stroke-width="0.8"/>
+<text x="350" y="243" text-anchor="middle" dominant-baseline="central" fill="#00c8ff" font-size="11" font-weight="500">4 — VirtualService (auth-svc)</text>
+<text x="350" y="259" text-anchor="middle" dominant-baseline="central" fill="#3a6a80" font-size="10">header match → DestinationRule subset auth-refactor → auth v2 pod</text>
+<line x1="350" y1="270" x2="350" y2="292" stroke="#00c8ff" stroke-width="1.5" marker-end="url(#ar2)"/>
+<rect x="160" y="294" width="380" height="44" rx="3" fill="#0d1a2a" stroke="#00c8ff" stroke-width="0.8"/>
+<text x="350" y="311" text-anchor="middle" dominant-baseline="central" fill="#00c8ff" font-size="11" font-weight="500">5 — auth service v2 pod</text>
+<text x="350" y="327" text-anchor="middle" dominant-baseline="central" fill="#3a6a80" font-size="10">EnvoyFilter (Lua) injects x-feat-name on every outbound egress call</text>
+<path d="M280 338 L160 374" fill="none" stroke="#00c8ff" stroke-width="1.5" marker-end="url(#ar2)"/>
+<path d="M420 338 L540 374" fill="none" stroke="#00c8ff" stroke-width="1.5" marker-end="url(#ar2)"/>
+<text x="192" y="362" text-anchor="middle" fill="#3a6a80" font-size="10">calls session-restapi</text>
+<text x="508" y="362" text-anchor="middle" fill="#3a6a80" font-size="10">calls info-restapi</text>
+<rect x="20" y="376" width="280" height="44" rx="3" fill="#0d1a2a" stroke="#00c8ff" stroke-width="0.8"/>
+<text x="160" y="393" text-anchor="middle" dominant-baseline="central" fill="#00c8ff" font-size="11" font-weight="500">6a — session-restapi v2</text>
+<text x="160" y="409" text-anchor="middle" dominant-baseline="central" fill="#3a6a80" font-size="10">VirtualService matches header → feature subset</text>
+<rect x="400" y="376" width="280" height="44" rx="3" fill="#13151c" stroke="rgba(255,255,255,0.07)" stroke-width="0.8"/>
+<text x="540" y="393" text-anchor="middle" dominant-baseline="central" fill="#eaeef3" font-size="11" font-weight="500">6b — info-restapi (stable)</text>
+<text x="540" y="409" text-anchor="middle" dominant-baseline="central" fill="#5f6e7e" font-size="10">no VirtualService match; serves stable response</text>
+</svg>
+<p class="diagram-caption">Fig 2 — Request path on first visit. Steps 1–2 promote the query param to a header. Step 3 is the shared-service propagation responsibility. Steps 4–6 are the Istio routing layer doing its thing.</p>
+</div>
+
+<h2>The Istio <span class="hb">objects</span></h2>
+
+<h3>0 — Gateway EnvoyFilter: the edge normaliser</h3>
+
+<p>Deployed once per namespace — shared across all ephemeral envs. Its only job is to read <code>?x-feat-name</code> from the query string and promote it to a request header so VirtualServices can match it. Crucially, it runs on the <strong>request phase only</strong>. The cookie write lives in the VirtualService response block — not here. This split keeps the responsibilities clean and the debugging surface small.</p>
+
+<div class="code-block">
+  <div class="code-header"><span class="code-lang">YAML</span><span class="code-file">gateway-envoyfilter.yaml</span></div>
+  <pre><span class="k">apiVersion</span>: networking.istio.io/v1alpha3
+<span class="k">kind</span>: EnvoyFilter
+<span class="k">metadata</span>:
+  <span class="k">name</span>: <span class="s">digillect-gateway-feat-param-filter</span>
+  <span class="k">namespace</span>: <span class="s">digillect-nonprod</span>
+<span class="k">spec</span>:
+  <span class="k">workloadSelector</span>:
+    <span class="k">labels</span>:
+      <span class="k">istio</span>: <span class="s">ingressgateway</span>
+  <span class="k">configPatches</span>:
+  - <span class="k">applyTo</span>: HTTP_FILTER
+    <span class="k">match</span>:
+      <span class="k">context</span>: GATEWAY
+      <span class="k">listener</span>:
+        <span class="k">filterChain</span>:
+          <span class="k">filter</span>:
+            <span class="k">name</span>: <span class="s">"envoy.filters.network.http_connection_manager"</span>
+            <span class="k">subFilter</span>:
+              <span class="k">name</span>: <span class="s">"envoy.filters.http.router"</span>
+    <span class="k">patch</span>:
+      <span class="k">operation</span>: INSERT_BEFORE
+      <span class="k">value</span>:
+        <span class="k">name</span>: envoy.lua
+        <span class="k">typed_config</span>:
+          <span class="k">"@type"</span>: <span class="s">type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua</span>
+          <span class="k">inlineCode</span>: |
+            <span class="c">-- Request phase only: promote ?x-feat-name to a header.</span>
+            <span class="c">-- Set-Cookie is handled by the VirtualService response headers block.</span>
+            function envoy_on_request(request_handle)
+              local path = request_handle:headers():get(":path") or ""
+              local feat = path:match("[?&]x%-feat%-name=([^&]+)")
+              if feat then
+                request_handle:headers():replace("x-feat-name", feat)
+                request_handle:logInfo("digillect: x-feat-name=" .. feat .. " promoted from queryParam")
+              end
+            end</pre>
+</div>
+
+<p>The matching VirtualService then writes the cookie on the response so the browser is pinned for subsequent requests:</p>
+
+<div class="code-block">
+  <div class="code-header"><span class="code-lang">YAML</span><span class="code-file">virtualservice-auth.yaml (response headers block)</span></div>
+  <pre>    <span class="k">headers</span>:
+      <span class="k">response</span>:
+        <span class="k">set</span>:
+          <span class="k">x-feat-name</span>: <span class="s">auth-refactor</span>
+        <span class="k">add</span>:
+          <span class="c"># VirtualService owns the cookie — gateway Lua only promotes the query param</span>
+          <span class="k">Set-Cookie</span>: <span class="s">"x-feat-name=auth-refactor; Path=/; Domain=digillect.ca; HttpOnly"</span>
+      <span class="k">request</span>:
+        <span class="k">set</span>:
+          <span class="k">x-feat-name</span>: <span class="s">auth-refactor</span></pre>
+</div>
+
+<div class="callout">
+  <div class="callout-label">Why handle this at the gateway?</div>
+  <p>Centralising query-param promotion at the edge means every downstream VirtualService stays simple — header and cookie match only, no <code>queryParams</code> blocks. This filter is shared across all ephemeral envs in the namespace — deploy it once and forget it. Each feature's VirtualService independently handles its own <code>Set-Cookie</code> response header. One shared filter, infinite feature envs. That's the deal.</p>
+</div>
+
+<h3>1 — VirtualService: the traffic gate</h3>
+
+<p>Sits in front of your application hostname. Because the gateway EnvoyFilter already handles query-param conversion, this only needs two match rules — header and cookie. On match it routes to the named subset and reinforces the <code>x-feat-name</code> response header so any service further down the chain can also read it.</p>
+
+<div class="code-block">
+  <div class="code-header"><span class="code-lang">YAML</span><span class="code-file">virtualservice-auth.yaml</span></div>
+  <pre><span class="k">apiVersion</span>: networking.istio.io/v1alpha3
+<span class="k">kind</span>: VirtualService
+<span class="k">metadata</span>:
+  <span class="k">name</span>: <span class="s">auth-refactor-auth-svc-vservice</span>
+  <span class="k">namespace</span>: <span class="s">digillect-nonprod</span>
+  <span class="k">labels</span>:
+    <span class="k">app</span>: <span class="s">digillect-auth</span>
+    <span class="k">x-feat-name</span>: <span class="s">auth-refactor</span>
+<span class="k">spec</span>:
+  <span class="k">hosts</span>:
+  - <span class="s">auth-svc.digillect.svc.cluster.local</span>
+  <span class="k">http</span>:
+  - <span class="k">name</span>: <span class="s">auth-refactor</span>
+    <span class="k">match</span>:
+    - <span class="k">headers</span>:
+        <span class="k">x-feat-name</span>:
+          <span class="k">regex</span>: <span class="s">.*(auth-refactor).*</span>
+    - <span class="k">headers</span>:
+        <span class="k">Cookie</span>:
+          <span class="k">regex</span>: <span class="s">.*(x-feat-name=auth-refactor).*</span>
+    <span class="k">route</span>:
+    - <span class="k">destination</span>:
+        <span class="k">host</span>: <span class="s">auth-svc.digillect.svc.cluster.local</span>
+        <span class="k">subset</span>: <span class="s">auth-refactor</span>
+        <span class="k">port</span>:
+          <span class="k">number</span>: <span class="v">8080</span>
+    <span class="k">headers</span>:
+      <span class="k">response</span>:
+        <span class="k">set</span>:
+          <span class="k">x-feat-name</span>: <span class="s">auth-refactor</span>
+      <span class="k">request</span>:
+        <span class="k">set</span>:
+          <span class="k">x-feat-name</span>: <span class="s">auth-refactor</span></pre>
+</div>
+
+<div class="callout warn">
+  <div class="callout-label">Regex on Cookie header — don't skip this</div>
+  <p>Browsers send all cookies in a single <code>Cookie: session=abc; x-feat-name=auth-refactor; theme=dark</code> string. The regex is required to extract the value. Use Istio's <code>safe_regex</code> (RE2 engine) in production to avoid ReDoS exposure. A catastrophic backtrack in a Lua filter at 3am is a rite of passage you don't need.</p>
+</div>
+
+<h3>2 — DestinationRule: the pod selector</h3>
+
+<p>Binds the subset name to concrete pod labels. Your feature Deployment must carry both a matching <code>app</code> label and a <code>version</code> label. If these drift from what the DestinationRule expects, Istio will return a 503 or silently fall through to stable — the most common production pitfall with this pattern. Check your labels twice. Deploy once.</p>
+
+<div class="code-block">
+  <div class="code-header"><span class="code-lang">YAML</span><span class="code-file">destinationrule-auth.yaml</span></div>
+  <pre><span class="k">apiVersion</span>: networking.istio.io/v1alpha3
+<span class="k">kind</span>: DestinationRule
+<span class="k">metadata</span>:
+  <span class="k">name</span>: <span class="s">auth-refactor-auth-svc-destination-rule</span>
+  <span class="k">namespace</span>: <span class="s">digillect-nonprod</span>
+  <span class="k">labels</span>:
+    <span class="k">app</span>: <span class="s">digillect-auth</span>
+    <span class="k">x-feat-name</span>: <span class="s">auth-refactor</span>
+<span class="k">spec</span>:
+  <span class="k">host</span>: <span class="s">auth-svc.digillect.svc.cluster.local</span>
+  <span class="k">subsets</span>:
+  - <span class="k">name</span>: <span class="s">auth-refactor</span>
+    <span class="k">labels</span>:
+      <span class="c"># These must match exactly what's on your feature pod template</span>
+      <span class="k">version</span>: <span class="s">auth-refactor</span>
+      <span class="k">app</span>: <span class="s">digillect-auth</span></pre>
+</div>
+
+<h3>3 — EnvoyFilter per feature pod: outbound header propagation</h3>
+
+<p>Without this, when the auth service v2 pod makes an outbound call to the backend, there's no <code>x-feat-name</code> header on that egress request. The backend's VirtualService finds no match and routes to the stable subset — silently breaking isolation. This EnvoyFilter patches a Lua script into the <strong>SIDECAR_OUTBOUND</strong> HTTP filter chain of each feature pod. It fires on every egress response and injects the header. No application code changes required on the feature pod itself.</p>
+
+<div class="code-block">
+  <div class="code-header"><span class="code-lang">YAML</span><span class="code-file">envoyfilter-auth.yaml</span></div>
+  <pre><span class="k">apiVersion</span>: networking.istio.io/v1alpha3
+<span class="k">kind</span>: EnvoyFilter
+<span class="k">metadata</span>:
+  <span class="k">name</span>: <span class="s">auth-refactor-auth-svc-filter</span>
+  <span class="k">namespace</span>: <span class="s">digillect-nonprod</span>
+  <span class="k">labels</span>:
+    <span class="k">app</span>: <span class="s">digillect-auth</span>
+    <span class="k">x-feat-name</span>: <span class="s">auth-refactor</span>
+<span class="k">spec</span>:
+  <span class="c"># Scoped ONLY to feature pods — stable pods are untouched</span>
+  <span class="k">workloadSelector</span>:
+    <span class="k">labels</span>:
+      <span class="k">version</span>: <span class="s">auth-refactor</span>
+      <span class="k">app</span>: <span class="s">digillect-auth</span>
+  <span class="k">configPatches</span>:
+  - <span class="k">applyTo</span>: HTTP_FILTER
+    <span class="k">match</span>:
+      <span class="k">context</span>: SIDECAR_OUTBOUND
+      <span class="k">listener</span>:
+        <span class="k">filterChain</span>:
+          <span class="k">filter</span>:
+            <span class="k">name</span>: <span class="s">"envoy.filters.network.http_connection_manager"</span>
+            <span class="k">subFilter</span>:
+              <span class="k">name</span>: <span class="s">"envoy.filters.http.router"</span>
+    <span class="k">patch</span>:
+      <span class="k">operation</span>: INSERT_BEFORE
+      <span class="k">value</span>:
+        <span class="k">name</span>: envoy.lua
+        <span class="k">typed_config</span>:
+          <span class="k">"@type"</span>: <span class="s">type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua</span>
+          <span class="k">inlineCode</span>: |
+            local feat_name = <span class="s">"auth-refactor"</span>
+
+            function envoy_on_response(response_handle)
+              response_handle:logInfo(<span class="s">"digillect: propagating x-feat-name="</span> .. feat_name)
+              response_handle:headers():add(<span class="s">"x-feat-name"</span>, feat_name)
+            end</pre>
+</div>
+
+<div class="callout">
+  <div class="callout-label">Why SIDECAR_OUTBOUND?</div>
+  <p>The Lua script fires when a feature pod is <em>making</em> a request to another service — on its outbound listener. This injects the propagation signal before the egress request leaves the pod, so downstream VirtualServices can match it. SIDECAR_INBOUND fires when the pod <em>receives</em> a request — too late to influence outbound routing from that pod. Wrong direction, wrong phase, wrong result.</p>
+</div>
+
+<div class="callout ok">
+  <div class="callout-label">You can drop the EnvoyFilter entirely</div>
+  <p>If every service in your mesh already propagates <code>x-feat-name</code> in application code — the same way tracing headers are forwarded — you don't need the per-app EnvoyFilter at all. The sidecar Lua is a convenience for teams that haven't built that discipline yet, or for services you don't own and can't modify. If your HTTP client wrappers handle propagation uniformly, skip the EnvoyFilter, reduce your Istio config surface area, and rely on the app layer alone. The VirtualService and DestinationRule are still required regardless. Some assembly required.</p>
+</div>
+
+<h2>Gotchas and <span class="hb">precautions</span></h2>
+
+<h3>Shared services must propagate the header themselves</h3>
+
+<p>The sidecar EnvoyFilter only runs on pods in the <em>ephemeral</em> env — the ones you deployed for the feature. It does not run on stable non-prod pods. This matters the moment the feature flow passes through a shared service.</p>
+
+<p>Consider this scenario: only the auth service changed, so the frontend is shared from stable non-prod. A user hits the feature env via cookie. The VirtualService routes to auth service v2. But how did the request get there? The frontend pod — running in stable — made an outbound call to auth. It has no EnvoyFilter. If it doesn't explicitly forward the <code>x-feat-name</code> header it received from the browser, that header is silently dropped, the auth VirtualService sees no match, and the call goes to stable auth instead of v2. You tested the wrong thing. Nobody knows. Ship it.</p>
+
+<div class="callout danger">
+  <div class="callout-label">Gotcha — shared service header blindspot</div>
+  <p>Any service that is <strong>not</strong> in the ephemeral env but sits in the call path between the gateway and a changed service must propagate <code>x-feat-name</code> in its outbound calls. The Lua EnvoyFilter only covers feature pods. Shared stable pods are transparent to it. This is an application-level responsibility — the header must flow through every hop in the chain to reach the service that actually has a VirtualService match configured.</p>
+</div>
+
+<p>The fix is to treat <code>x-feat-name</code> the same way distributed tracing headers are treated: any service that participates in the mesh reads inbound context headers and forwards them on every outbound HTTP call. Build it once in a shared HTTP client wrapper, use it everywhere.</p>
+
+<div class="code-block">
+  <div class="code-header"><span class="code-lang">Node.js</span><span class="code-file">http-client-middleware (example)</span></div>
+  <pre><span class="c">// Propagation headers — read from inbound request, forward on all outbound calls</span>
+const PROPAGATE_HEADERS = [
+  <span class="s">'x-feat-name'</span>,
+  <span class="s">'x-request-id'</span>,
+  <span class="s">'x-b3-traceid'</span>,
+  <span class="s">'x-b3-spanid'</span>,
+];
+
+function buildOutboundHeaders(inboundReq) {
+  const headers = {};
+  for (const h of PROPAGATE_HEADERS) {
+    const val = inboundReq.headers[h];
+    if (val) headers[h] = val;
+  }
+  return headers;
+}</pre>
+</div>
+
+<h3>TLS origination blocks the sidecar EnvoyFilter</h3>
+
+<p>The sidecar EnvoyFilter's Lua script runs inside the <strong>HTTP filter chain</strong> of the outbound listener. This chain only activates when the sidecar can parse the traffic as HTTP — meaning the application sends plain HTTP to the local Envoy, which then handles encryption transparently (Istio's auto-mTLS between mesh pods).</p>
+
+<p>If an application originates TLS itself — calling <code>https://backend-svc</code> directly instead of <code>http://backend-svc</code> — the sidecar receives an already-encrypted byte stream. The HTTP connection manager never takes over, and the Lua filter is entirely bypassed. The header is never injected.</p>
+
+
+<div class="callout danger">
+  <div class="callout-label">Gotcha — TLS origination (app-originated HTTPS)</div>
+  <p>When a service in your ephemeral env makes an outbound call using <code>https://</code> directly, the Envoy sidecar sees an opaque TLS stream. The HTTP filter chain — and therefore the Lua propagation script — is skipped. The <code>x-feat-name</code> header is never added to that egress call. Downstream VirtualServices see no match and fall through to stable. This failure is completely silent.</p>
+</div>
+
+<p>The solution is the same as the shared-service case above: explicitly forward the header in application code on every outbound call. When you cannot rely on the sidecar to propagate it (because the app owns TLS), the app must own propagation instead.</p>
+
+<div class="callout warn">
+  <div class="callout-label">Design principle</div>
+  <p>Treat <code>x-feat-name</code> exactly like distributed tracing context: propagate it in your HTTP client wrapper at every hop, regardless of whether you expect an EnvoyFilter to cover it. This gives you defence-in-depth — the Lua filter handles it for free on feature pods, and the app layer handles it everywhere else. Two layers. No surprises.</p>
+</div>
+
+<div class="callout">
+  <div class="callout-label">Security note</div>
+  <p><code>x-feat-name</code> is a routing hint, not an auth mechanism. Anyone with a valid feature name can access that environment. Combine with your existing auth layer for sensitive features. Strip the header at the ingress gateway on production clusters so this pattern only operates in non-prod. Seriously — strip it on prod.</p>
+</div>
+
+<!-- <h2>Deploying <span class="hb">the manifests</span></h2>
+
+<div class="code-block">
+  <div class="code-header"><span class="code-lang">Bash</span><span class="code-file">deploy.sh</span></div>
+  <pre><span class="c"># 1. Deploy the gateway EnvoyFilter once per namespace (shared across all features)</span>
+kubectl apply -f gateway-envoyfilter.yaml -n digillect-nonprod
+
+<span class="c"># 2. Deploy the feature pod</span>
+kubectl apply -f k8s/digillect-auth-v2-deployment.yaml -n digillect-nonprod
+
+<span class="c"># 3. Apply the three per-feature Istio objects</span>
+kubectl apply -f virtualservice-auth.yaml -n digillect-nonprod
+kubectl apply -f destinationrule-auth.yaml -n digillect-nonprod
+kubectl apply -f envoyfilter-auth.yaml -n digillect-nonprod
+
+<span class="c"># 4. Share the feature URL — query param triggers first-visit cookie set</span>
+echo "https://myapp.digillect.ca/?x-feat-name=auth-refactor"
+
+<span class="c"># Teardown — remove the three per-feature objects and the pod</span>
+<span class="c"># kubectl delete -f virtualservice-auth.yaml destinationrule-auth.yaml envoyfilter-auth.yaml</span>
+<span class="c"># kubectl delete -f k8s/digillect-auth-v2-deployment.yaml</span></pre>
+</div>
+
+<div class="callout ok">
+  <div class="callout-label">Post-deploy quick-check — don't skip this</div>
+  <ul>
+    <li>Verify pod labels: <code>kubectl get pod -l version=auth-refactor,app=digillect-auth -n digillect-nonprod</code></li>
+    <li>Confirm all objects: <code>kubectl get virtualservice,destinationrule,envoyfilter -l x-feat-name=auth-refactor -n digillect-nonprod</code></li>
+    <li>Test entry point: <code>curl -I "https://myapp.digillect.ca/?x-feat-name=auth-refactor"</code> — look for <code>x-feat-name: auth-refactor</code> and <code>Set-Cookie</code> in the response</li>
+    <li>If any service uses <code>https://</code> internally: verify app-level header forwarding is in place before relying on the sidecar filter</li>
+  </ul>
+</div> -->
+
+<h2>Conclusion</h2>
+
+<p>The pattern — a gateway-level query param normaliser, per-app VirtualServices and DestinationRules, and optional sidecar EnvoyFilters — composes into a practical ephemeral environment system that scales across clusters without a shared mesh and tears down cleanly per feature. If your services already propagate <code>x-feat-name</code> in application code, skip the EnvoyFilters entirely and reduce your Istio config surface area.</p>
+
+<p>The two disciplines it demands are: understanding where the sidecar filter chain operates relative to TLS, and treating <code>x-feat-name</code> as a first-class propagation header in your HTTP client code alongside tracing headers. Build both of those habits in once, as shared infrastructure, and the operational cost of each new ephemeral env drops to deploying a pod and three YAML files. That's the deal. Not bad.</p>
+
+<blockquote>
+  "Reliability isn't a feature you bolt on — it's a discipline you build in from the ground up. Same goes for ephemeral environments that actually work."
+</blockquote>
+
+</article>
+
+<!-- ══ POST FOOTER NAV ══ -->
+<div class="post-nav-strip">
+  <a href="../index.html" class="post-nav-back">← All Posts</a>
+  <a href="../../index.html#contact" class="post-nav-cta">Work with Digillect →</a>
+</div>
+
+<!-- ══ FOOTER ══ -->
+<footer class="post-footer">
+  <div class="footer-logo">Digillect</div>
+  <div class="footer-copy">© 2026 Digillect. All rights reserved. Downtown Toronto, ON.</div>
+  <div class="footer-loc">
+    <svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+    Downtown Toronto, ON
+  </div>
+</footer>
+
+<script>
+  /* Hamburger */
+  const btn    = document.getElementById('nav-hamburger');
+  const drawer = document.getElementById('nav-mobile-drawer');
+  if (btn && drawer) {
+    btn.addEventListener('click', () => {
+      const open = drawer.classList.toggle('open');
+      btn.classList.toggle('open', open);
+      document.body.style.overflow = open ? 'hidden' : '';
+    });
+    drawer.addEventListener('click', e => {
+      if (e.target === drawer) {
+        drawer.classList.remove('open');
+        btn.classList.remove('open');
+        document.body.style.overflow = '';
+      }
+    });
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') {
+        drawer.classList.remove('open');
+        btn.classList.remove('open');
+        document.body.style.overflow = '';
+      }
+    });
+  }
+</script>
+</body>
+</html>

@@ -23,15 +23,25 @@
 
 const POSTS = [
   {
+    title:    "Cost-Efficient Ephemeral Environments with Istio",
+    excerpt:  "Deploy only what changed. Route feature traffic via header or cookie. Reuse the rest from your stable non-prod cluster — no duplicate stacks, no wasted compute. Your cloud bill will thank you. Your on-call rotation won't need to.",
+    date:     "Mar 2026",
+    readTime: "14 min read",
+    tags:     ["Istio", "Kubernetes", "Platform Eng"],
+    url:      "ephemeral-envs-istio/index.html",
+    accent:   "yellow",
+    external: false,
+  },
+  {
     title:    "Kubernetes Operator with Kopf",
     excerpt:  "How to extend the Kubernetes API with custom operators using the Kopf Python framework — including a real-world use case: injecting init containers into labelled pods via mutation and validation webhooks.",
     date:     "Apr 2023",
     readTime: "6 min read",
     tags:     ["Kubernetes", "Operators", "Python", "Kopf"],
     url:      "https://medium.com/@jasmeetkohlisingh/kubernetes-operator-with-kopf-23f86b593ff7",
-    accent:   "yellow",
+    accent:   "blue",
+    external: true,
   },
-  // Add more posts here ↓
 ];
 
 /* ── K8s illustration SVG (shown in single editorial layout) ── */
@@ -90,15 +100,19 @@ function renderEmpty() {
 
 /* ── Build a card ── */
 function buildCard(post, index, layoutClass) {
-  const accent  = post.accent || (index % 2 === 0 ? 'blue' : 'yellow');
-  const tags    = post.tags.map(t => `<span class="blog-tag">${t}</span>`).join('');
-  const visual  = layoutClass === 'layout-single'
+  const accent   = post.accent || (index % 2 === 0 ? 'blue' : 'yellow');
+  const tags     = post.tags.map(t => `<span class="blog-tag">${t}</span>`).join('');
+  const isExt    = post.external !== false && (post.url.startsWith('http'));
+  const target   = isExt ? 'target="_blank" rel="noopener noreferrer"' : '';
+  const ctaLabel = isExt ? 'Read on Medium' : 'Read Post';
+  const source   = isExt ? 'Medium' : 'Digillect';
+  const visual   = layoutClass === 'layout-single'
     ? `<div class="blog-card-visual-wrap">${K8S_ILLUS}</div>`
     : '';
 
   return `
     <a class="blog-card accent-${accent}"
-       href="${post.url}" target="_blank" rel="noopener noreferrer"
+       href="${post.url}" ${target}
        aria-label="Read: ${post.title}">
       ${visual}
       <div class="blog-card-content">
@@ -108,11 +122,11 @@ function buildCard(post, index, layoutClass) {
           <span class="blog-card-meta-dot">●</span>
           <span>${post.readTime}</span>
           <span class="blog-card-meta-dot">●</span>
-          <span>Medium</span>
+          <span>${source}</span>
         </div>
         <div class="blog-card-title">${post.title}</div>
         <p class="blog-card-desc">${post.excerpt}</p>
-        <span class="blog-card-cta">Read on Medium ${EXT_ICON}</span>
+        <span class="blog-card-cta">${ctaLabel} ${isExt ? EXT_ICON : '→'}</span>
       </div>
     </a>`;
 }
